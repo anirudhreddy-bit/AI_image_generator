@@ -1,46 +1,93 @@
-import Link from "next/link";
+'use client';
+
+import { useState } from 'react';
+import TopBar from './components/TopBar';
+import SearchInput from './components/SearchInput';
+import ImageGrid from './components/ImageGrid';
+
+interface GeneratedImage {
+  url: string;
+}
 
 export default function Home() {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showImages, setShowImages] = useState(false);
+  const [images, setImages] = useState<GeneratedImage[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGenerate = async (prompt: string) => {
+    setIsGenerating(true);
+    setShowImages(true);
+    setError(null);
+    setImages([]); // Clear previous images
+    
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate images');
+      }
+
+      if (!data.images || !Array.isArray(data.images)) {
+        throw new Error('Invalid response format');
+      }
+
+      // Validate and transform image URLs
+      const validatedImages = data.images.map((img: any) => {
+        if (!img || typeof img.url !== 'string') {
+          throw new Error('Invalid image format in response');
+        }
+        return { url: img.url };
+      });
+
+      console.log('Setting images:', validatedImages);
+      setImages(validatedImages);
+    } catch (error) {
+      console.error('Error generating images:', error);
+      setError(error instanceof Error ? error.message : 'Failed to generate images');
+      setShowImages(false);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-8">
-      <div>
-        <h2 className="text-2xl font-semibold text-center border p-4 font-mono rounded-md">
-          Get started by choosing a template path from the /paths/ folder.
-        </h2>
-      </div>
-      <div>
-        <h1 className="text-6xl font-bold text-center">Make anything you imagine 🪄</h1>
-        <h2 className="text-2xl text-center font-light text-gray-500 pt-4">
-          This whole page will be replaced when you run your template path.
-        </h2>
-      </div>
-      <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="border rounded-lg p-6 hover:bg-gray-100 transition-colors">
-          <h3 className="text-xl font-semibold">AI Chat App</h3>
-          <p className="mt-2 text-sm text-gray-600">
-            An intelligent conversational app powered by AI models, featuring real-time responses
-            and seamless integration with Next.js and various AI providers.
-          </p>
-        </div>
-        <div className="border rounded-lg p-6 hover:bg-gray-100 transition-colors">
-          <h3 className="text-xl font-semibold">AI Image Generation App</h3>
-          <p className="mt-2 text-sm text-gray-600">
-            Create images from text prompts using AI, powered by the Replicate API and Next.js.
-          </p>
-        </div>
-        <div className="border rounded-lg p-6 hover:bg-gray-100 transition-colors">
-          <h3 className="text-xl font-semibold">Social Media App</h3>
-          <p className="mt-2 text-sm text-gray-600">
-            A feature-rich social platform with user profiles, posts, and interactions using
-            Firebase and Next.js.
-          </p>
-        </div>
-        <div className="border rounded-lg p-6 hover:bg-gray-100 transition-colors">
-          <h3 className="text-xl font-semibold">Voice Notes App</h3>
-          <p className="mt-2 text-sm text-gray-600">
-            A voice-based note-taking app with real-time transcription using Deepgram API, 
-            Firebase integration for storage, and a clean, simple interface built with Next.js.
-          </p>
+    <main className="min-h-screen bg-white relative">
+      {/* Background dots pattern */}
+      <div className="absolute inset-0 w-full h-full" 
+        style={{
+          backgroundImage: 'radial-gradient(circle, #e5e7eb 1px, transparent 1px)',
+          backgroundSize: '30px 30px',
+          opacity: 0.5,
+          zIndex: 0
+        }}
+      />
+      
+      {/* Content */}
+      <div className="relative z-10">
+        <TopBar />
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <SearchInput onGenerate={handleGenerate} />
+          
+          {error && (
+            <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600">
+              {error}
+            </div>
+          )}
+          
+          <ImageGrid 
+            isGenerating={isGenerating} 
+            showImages={showImages}
+            images={images}
+          />
         </div>
       </div>
     </main>
